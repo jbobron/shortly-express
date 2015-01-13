@@ -3,6 +3,9 @@ var util = require('./lib/utility');
 var partials = require('express-partials');
 var bodyParser = require('body-parser');
 
+//Hash these keys
+var crypto = require('crypto');
+
 
 var db = require('./app/config');
 var Users = require('./app/collections/users');
@@ -35,13 +38,27 @@ app.get('/signup',
 });
 
 app.post('/signup', function(req,res){
-  console.log(req.body.username);
-    var user = new User({
-      username: req.body.username,
-      password: req.body.password
-  });
-    console.log("USER:", user);
+
+  new User({ username: req.body.username }).fetch().then(function(found) {
+    if (found) {
+      res.send(200, found.attributes);
+    } else {
+      console.log(req.body);
+      var hasher = crypto.createHash('sha1');
+      console.log(hasher.update(req.body.password).digest('hex'));
+        var user = new User({
+          username: req.body.username,
+          password: req.body.password
+        });
+
+        user.save().then(function(newUser) {
+          // Links.add(newLink);
+          res.send(200, newUser);
+        });
+      };
+    })
 });
+
 
 app.get("/login",
   function(req, res) {
@@ -53,14 +70,29 @@ app.post('/login',
   function(req, res){
     console.log("Post to login received")
     //grab username and password from field
-    //if username is in database
-      // route to index page, show logged in status there somehow
-    //else
+    new User( {username: req.body.username} ).fetch()
+    .then(function(found){
+      //if username is in database
+      if(found){
+        console.log("DBPassword:",found.attributes.password);
+        console.log("Input Password:",req.body.password);
+          //Check if the password is the same
+        if(found.attributes.password === req.body.password){
+          console.log("authenticated:",req.body.username);
+          // route to index page
+          // show logged in status there somehow
+          res.redirect("/");
+        }else{
+          console.log("incorrect password");
+          res.redirect("/login");
+        };
+      }else{
       //redirect to sign up page
-
-
-
-    console.log("REQ body:", req.body)
+        console.log("username " + req.body.username + " does not exist");
+        res.redirect("/signup");
+      }
+    })
+    //console.log("REQ body:", req.body)
   })
 
 
@@ -86,6 +118,7 @@ function(req, res) {
   }
 
   new Link({ url: uri }).fetch().then(function(found) {
+    console.log("FOUND_URL", found)
     if (found) {
       res.send(200, found.attributes);
     } else {
