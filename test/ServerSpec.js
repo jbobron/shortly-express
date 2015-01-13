@@ -62,12 +62,13 @@ describe('', function() {
   describe('Link creation:', function(){
 
     var requestWithSession = request.defaults({jar: true});
-
-    xbeforeEach(function(done){      // create a user that we can then log-in with
+    console.log(typeof requestWithSession)
+    beforeEach(function(done){      // create a user that we can then log-in with
       new User({
           'username': 'Phillip',
           'password': 'Phillip'
       }).save().then(function(){
+        //console.log("post request");
         var options = {
           'method': 'POST',
           'followAllRedirects': true,
@@ -77,10 +78,11 @@ describe('', function() {
             'password': 'Phillip'
           }
         };
-        // login via form and save session info
+
         requestWithSession(options, function(error, res, body) {
           done();
         });
+        // login via form and save session info
       });
     });
 
@@ -136,12 +138,12 @@ describe('', function() {
       it('Fetches the link url title', function (done) {
         requestWithSession(options, function(error, res, body) {
           db.knex('urls')
-            .where('title', '=', 'Rofl Zoo - Daily funny animal pictures')
+            .where('title', '=', 'Funny animal pictures, funny animals, funniest dogs')
             .then(function(urls) {
               if (urls['0'] && urls['0']['title']) {
                 var foundTitle = urls['0']['title'];
               }
-              expect(foundTitle).to.equal('Rofl Zoo - Daily funny animal pictures');
+              expect(foundTitle).to.equal('Funny animal pictures, funny animals, funniest dogs');
               done();
             });
         });

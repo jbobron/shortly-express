@@ -23,24 +23,60 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static(__dirname + '/public'));
 
 
-app.get('/', 
+app.get('/',
 function(req, res) {
   res.render('index');
 });
 
-app.get('/create', 
+//TODO:  APP.GET '/signup' HERE
+app.get('/signup',
+  function(req,res) {
+    res.render('signup');
+});
+
+app.post('/signup', function(req,res){
+  console.log(req.body.username);
+    var user = new User({
+      username: req.body.username,
+      password: req.body.password
+  });
+    console.log("USER:", user);
+});
+
+app.get("/login",
+  function(req, res) {
+  res.render('login');
+});
+
+//TODO: finish login
+app.post('/login',
+  function(req, res){
+    console.log("Post to login received")
+    //grab username and password from field
+    //if username is in database
+      // route to index page, show logged in status there somehow
+    //else
+      //redirect to sign up page
+
+
+
+    console.log("REQ body:", req.body)
+  })
+
+
+app.get('/create',
 function(req, res) {
   res.render('index');
 });
 
-app.get('/links', 
+app.get('/links',
 function(req, res) {
   Links.reset().fetch().then(function(links) {
     res.send(200, links.models);
   });
 });
 
-app.post('/links', 
+app.post('/links',
 function(req, res) {
   var uri = req.body.url;
 
