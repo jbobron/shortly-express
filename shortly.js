@@ -2,10 +2,11 @@ var express = require('express');
 var util = require('./lib/utility');
 var partials = require('express-partials');
 var bodyParser = require('body-parser');
+var session = require('express-session');
 
 //Hash these keys
-var crypto = require('crypto');
-
+//var crypto = require('crypto');
+var bcrypt = require('bcrypt');
 
 var db = require('./app/config');
 var Users = require('./app/collections/users');
@@ -24,92 +25,28 @@ app.use(bodyParser.json());
 // Parse forms (signup/login)
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static(__dirname + '/public'));
+// Use express session
+app.use(session({
+  secret: 'keyboard cat',
+  resave: false,
+  saveUninitialized: true
+}));
 
-
-app.get('/',
-function(req, res) {
+app.get('/', util.checkUser, function(req, res) {
   res.render('index');
 });
 
-//TODO:  APP.GET '/signup' HERE
-app.get('/signup',
-  function(req,res) {
-    res.render('signup');
-});
-
-app.post('/signup', function(req,res){
-
-  new User({ username: req.body.username }).fetch().then(function(found) {
-    if (found) {
-      res.send(200, found.attributes);
-    } else {
-      console.log(req.body);
-      var hasher = crypto.createHash('sha1');
-      console.log(hasher.update(req.body.password).digest('hex'));
-        var user = new User({
-          username: req.body.username,
-          password: req.body.password
-        });
-
-        user.save().then(function(newUser) {
-          // Links.add(newLink);
-          res.send(200, newUser);
-        });
-      };
-    })
-});
-
-
-app.get("/login",
-  function(req, res) {
-  res.render('login');
-});
-
-//TODO: finish login
-app.post('/login',
-  function(req, res){
-    console.log("Post to login received")
-    //grab username and password from field
-    new User( {username: req.body.username} ).fetch()
-    .then(function(found){
-      //if username is in database
-      if(found){
-        console.log("DBPassword:",found.attributes.password);
-        console.log("Input Password:",req.body.password);
-          //Check if the password is the same
-        if(found.attributes.password === req.body.password){
-          console.log("authenticated:",req.body.username);
-          // route to index page
-          // show logged in status there somehow
-          res.redirect("/");
-        }else{
-          console.log("incorrect password");
-          res.redirect("/login");
-        };
-      }else{
-      //redirect to sign up page
-        console.log("username " + req.body.username + " does not exist");
-        res.redirect("/signup");
-      }
-    })
-    //console.log("REQ body:", req.body)
-  })
-
-
-app.get('/create',
-function(req, res) {
+app.get('/create', util.checkUser, function(req, res) {
   res.render('index');
 });
 
-app.get('/links',
-function(req, res) {
+app.get('/links', util.checkUser, function(req, res) {
   Links.reset().fetch().then(function(links) {
     res.send(200, links.models);
   });
 });
 
-app.post('/links',
-function(req, res) {
+app.post('/links', util.checkUser, function(req, res) {
   var uri = req.body.url;
 
   if (!util.isValidUrl(uri)) {
@@ -142,6 +79,73 @@ function(req, res) {
     }
   });
 });
+
+//TODO:  APP.GET '/signup' HERE
+app.get('/signup', function(req,res) {
+    res.render('signup');
+});
+
+app.post('/signup', function(req,res){
+  new User({ username: req.body.username }).fetch().then(function(found) {
+    if (found) {
+      res.send(200, found.attributes);
+    } else {
+      bcrypt.genSalt(10,function(err,salt){
+        bcrypt.hash(req.body.password,salt,function(err,hash){
+          if(err){console.log("signin hash error")};
+          var user = new User({
+            username: req.body.username,
+            password: hash
+          });
+          user.save().then(function(newUser) {
+            //redirect to /
+            res.send(200, newUser);
+            res.redirect("/");
+          })
+        })
+      });
+    };
+  })
+});
+
+
+app.get("/login", function(req, res) {
+  res.render('login');
+});
+
+//TODO: finish login
+app.post('/login', function(req, res){
+//add user property, with value of username, to the session
+  console.log("Post to login received")
+  //grab username and password from field
+  new User( {username: req.body.username} ).fetch().then(function(found){
+    //if username is in database
+    if(found){
+      bcrypt.genSalt(10, function(err, salt){
+        bcrypt.hash(req.body.password, salt, function(err, hash){
+          console.log("Hash from db",found.attributes.password);
+          console.log("pw from user", req.body.password);
+          bcrypt.compare(req.body.password, found.attributes.password, function(err, result){
+            if (result === true) {
+              console.log("authenticated:",req.body.username);
+              util.createSession(req,res,req.body.username);
+            } else {
+              console.log("incorrect password");
+              res.redirect("/");
+            }
+          });
+        });
+      });
+    }else{
+    //redirect to sign up page
+      console.log("username " + req.body.username + " does not exist");
+      res.redirect("/login");
+    }
+  })
+})
+
+
+
 
 /************************************************************/
 // Write your authentication routes here
